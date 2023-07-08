@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Model Decimator</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        input[type=range] {
+            width: 100%;
+        }
+        #model-viewer {
+            width: 100%;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <h1>3D Model Decimator</h1>
+    <p>Upload your 3D model and use the slider to decimate it by reducing the number of triangles.</p>
+    <input type="file" id="file-input" accept=".obj">
+    <br><br>
+    <label for="decimation-range">Decimation Level (1-50): </label>
+    <input type="range" id="decimation-range" min="1" max="50" value="25">
+    <br><br>
+    <div id="model-viewer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/modifiers/SimplifyModifier.js"></script>
+    <script>
+        let scene, camera, renderer, model;
+
+        function init() {
+            // Set up the Three.js scene
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('model-viewer').appendChild(renderer.domElement);
+
+            // Add an ambient light to the scene
+            let light = new THREE.AmbientLight(0xffffff);
+            scene.add(light);
+
+            // Set up the camera controls
+            let controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.25;
+            controls.enableZoom = false;
+
+            // Set up the file input event listener
+            document.getElementById('file-input').addEventListener('change', handleFileSelect, false);
+
+            // Set up the decimation range event listener
+            document.getElementById('decimation-range').addEventListener('input', handleDecimationChange, false);
+
+            // Start the animation loop
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        function handleFileSelect(evt) {
+            let file = evt.target.files[0];
+
+            if (file) {
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let contents = e.target.result;
+
+                    // Load the 3D model from the file contents
+                    let loader = new THREE.OBJLoader();
+                    model = loader.parse(contents);
+                    scene.add(model);
+
+                    // Center the camera on the model
+                    let box = new THREE.Box3().setFromObject(model);
+                    let center = box.getCenter(new THREE.Vector3());
+                    camera.position.set(center.x, center.y, center.z + 5);
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function handleDecimationChange(evt) {
+            let decimationLevel = evt.target.value;
+
+            if (model) {
+                // Decimate the model by reducing the number of triangles
+                let modifier = new THREE.SimplifyModifier();
+                model.traverse(function(child) {
+                    if (child instanceof THREE.Mesh) {
+                        let geometry = child.geometry;
+                        let count = Math.floor(geometry.attributes.position.count * (decimationLevel / 50));
+                        child.geometry = modifier.modify(geometry, count);
+                    }
+                });
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
